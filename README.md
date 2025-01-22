@@ -47,7 +47,7 @@ TextEase là một ứng dụng soạn thảo văn bản hiện đại được 
 ## Phát triển
 1. Clone repository:
 ```bash
-git clone https://github.com/yourusername/TextEase.git
+git clone https://github.com/avixiii-dev/TextEase.git
 ```
 2. Mở solution trong Visual Studio 2022
 3. Build và chạy ứng dụng
