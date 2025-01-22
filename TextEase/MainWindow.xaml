@@ -9,7 +9,42 @@
     mc:Ignorable="d"
     Title="TextEase">
 
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-        <Button x:Name="myButton" Click="myButton_Click">Click Me</Button>
-    </StackPanel>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right">
+            <AppBarButton x:Name="UndoButton" Icon="Undo" Label="Undo" Click="UndoButton_Click"/>
+            <AppBarButton x:Name="RedoButton" Icon="Redo" Label="Redo" Click="RedoButton_Click"/>
+            <AppBarSeparator/>
+            <AppBarToggleButton x:Name="WordWrapButton" Icon="List" Label="Word Wrap" Click="WordWrapButton_Click"/>
+        </CommandBar>
+
+        <!-- Main Editor -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+            <TextBox x:Name="MainEditor"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     PlaceholderText="Start typing..."
+                     TextChanged="MainEditor_TextChanged"
+                     SelectionChanged="MainEditor_SelectionChanged"
+                     Margin="12"/>
+        </ScrollViewer>
+
+        <!-- Status Bar -->
+        <Grid Grid.Row="2" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" Padding="12,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <TextBlock x:Name="SelectionStats" Grid.Column="0" Text="Ln 1, Col 1"/>
+            <TextBlock x:Name="WordCount" Grid.Column="2" Text="Words: 0"/>
+        </Grid>
+    </Grid>
 </Window>
