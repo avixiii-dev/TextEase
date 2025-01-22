@@ -1,0 +1,24 @@
+{
+  "name": "textease",
+  "version": "1.0.0",
+  "description": "A modern desktop text editor with support for TXT, RTF, and Markdown",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "electron": "^28.1.0",
+    "marked": "^12.0.0",
+    "highlight.js": "^11.9.0",
+    "rich-text": "^4.1.0",
+    "codemirror": "^6.0.1",
+    "@codemirror/lang-markdown": "^6.0.0",
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.9.1"
+  }
+}
