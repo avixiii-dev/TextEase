@@ -435,39 +435,244 @@ saveIndicatorStyle.textContent = `
 `;
 document.head.appendChild(saveIndicatorStyle);
 
-// Add keyboard shortcuts
-document.addEventListener('keydown', async (e) => {
-    // Save: Cmd/Ctrl + S
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        const content = editor.textContent;
-        const newPath = await ipcRenderer.invoke('save-file', {
-            content,
-            filePath: currentFilePath,
-            fileType: currentFileType
-        });
-        if (newPath) {
-            currentFilePath = newPath;
-            fileStatus.textContent = currentFilePath;
+// Search and Replace functionality
+let currentSearchIndex = -1;
+let searchMatches = [];
+
+function getEditorText() {
+    return editor.innerText || editor.textContent;
+}
+
+function setEditorText(text) {
+    editor.textContent = text;
+    updatePreview();
+    triggerAutoSave();
+}
+
+function updateSearchButtonStates() {
+    const prevBtn = document.getElementById('searchPrevBtn');
+    const nextBtn = document.getElementById('searchNextBtn');
+    const hasMatches = searchMatches.length > 0;
+    
+    if (prevBtn && nextBtn) {
+        prevBtn.disabled = !hasMatches;
+        nextBtn.disabled = !hasMatches;
+    }
+}
+
+function performSearch(searchText, caseSensitive = false) {
+    const content = getEditorText();
+    searchMatches = [];
+    currentSearchIndex = -1;
+    
+    if (!searchText) {
+        clearSearchHighlights();
+        updateSearchButtonStates();
+        return;
+    }
+
+    try {
+        // Create regex for search
+        let flags = 'g';
+        if (!caseSensitive) flags += 'i';
+        const regex = new RegExp(searchText, flags);
+        
+        // Find all matches
+        let match;
+        while ((match = regex.exec(content)) !== null) {
+            searchMatches.push({
+                start: match.index,
+                end: match.index + match[0].length,
+                text: match[0]
+            });
         }
+        
+        if (searchMatches.length > 0) {
+            currentSearchIndex = 0;
+        }
+        
+        highlightMatches();
+        updateSearchStatus();
+        updateSearchButtonStates();
+    } catch (error) {
+        console.error('Search error:', error);
+        updateSearchButtonStates();
+    }
+}
+
+function clearSearchHighlights() {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    const content = range.extractContents();
+    
+    // Remove all highlight spans
+    const highlights = content.querySelectorAll('.search-highlight');
+    highlights.forEach(highlight => {
+        const text = document.createTextNode(highlight.textContent);
+        highlight.parentNode.replaceChild(text, highlight);
+    });
+    
+    editor.appendChild(content);
+    updateSearchStatus();
+    updateSearchButtonStates();
+}
+
+function highlightMatches() {
+    if (searchMatches.length === 0) {
+        clearSearchHighlights();
+        return;
+    }
+
+    const content = getEditorText();
+    let html = '';
+    let lastIndex = 0;
+
+    searchMatches.forEach((match, index) => {
+        // Add text before match
+        html += content.substring(lastIndex, match.start);
+        
+        // Add highlighted match
+        const matchClass = index === currentSearchIndex ? 'search-highlight current-match' : 'search-highlight';
+        html += `<span class="${matchClass}">${match.text}</span>`;
+        
+        lastIndex = match.end;
+    });
+
+    // Add remaining text
+    html += content.substring(lastIndex);
+    
+    // Update editor content
+    editor.innerHTML = html;
+    
+    // Scroll current match into view
+    if (currentSearchIndex >= 0) {
+        const currentMatch = editor.querySelector('.current-match');
+        if (currentMatch) {
+            currentMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
+
+function updateSearchStatus() {
+    const statusEl = document.getElementById('searchStatus');
+    if (!statusEl) return;
+
+    if (searchMatches.length === 0) {
+        statusEl.textContent = 'No matches';
+    } else {
+        statusEl.textContent = `${currentSearchIndex + 1}/${searchMatches.length} matches`;
+    }
+}
+
+function navigateSearch(direction) {
+    if (searchMatches.length === 0) return;
+    
+    currentSearchIndex += direction;
+    if (currentSearchIndex >= searchMatches.length) {
+        currentSearchIndex = 0;
+    } else if (currentSearchIndex < 0) {
+        currentSearchIndex = searchMatches.length - 1;
     }
     
-    // Save As: Cmd/Ctrl + Shift + S
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
+    highlightMatches();
+    updateSearchStatus();
+}
+
+// Add event listeners for search navigation
+document.getElementById('searchNextBtn').addEventListener('click', () => {
+    navigateSearch(1);
+});
+
+document.getElementById('searchPrevBtn').addEventListener('click', () => {
+    navigateSearch(-1);
+});
+
+// Add keyboard shortcuts for search navigation
+editor.addEventListener('keydown', (e) => {
+    if (e.key === 'F3' || (e.ctrlKey && e.key === 'g')) {
         e.preventDefault();
-        const content = editor.textContent;
-        const newPath = await ipcRenderer.invoke('save-file', {
-            content,
-            filePath: currentFilePath,
-            fileType: currentFileType,
-            saveAs: true
-        });
-        if (newPath) {
-            currentFilePath = newPath;
-            fileStatus.textContent = currentFilePath;
-        }
+        navigateSearch(1);
+    } else if (e.shiftKey && e.key === 'F3') {
+        e.preventDefault();
+        navigateSearch(-1);
+    } else if (e.ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
     }
 });
+
+// Add event listeners for search and replace
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    const searchText = e.target.value;
+    performSearch(searchText);
+});
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+    const searchText = document.getElementById('searchInput').value;
+    performSearch(searchText);
+});
+
+document.getElementById('replaceBtn').addEventListener('click', () => {
+    const replaceText = document.getElementById('replaceInput').value;
+    replaceMatch(replaceText);
+});
+
+document.getElementById('replaceAllBtn').addEventListener('click', () => {
+    const searchText = document.getElementById('searchInput').value;
+    const replaceText = document.getElementById('replaceInput').value;
+    replaceAll(searchText, replaceText);
+});
+
+function replaceMatch(replaceText) {
+    if (currentSearchIndex === -1 || searchMatches.length === 0) return;
+    
+    const content = getEditorText();
+    const match = searchMatches[currentSearchIndex];
+    const newContent = content.substring(0, match.start) + 
+                      replaceText + 
+                      content.substring(match.end);
+    
+    setEditorText(newContent);
+    
+    // Adjust indices for remaining matches
+    const lengthDiff = replaceText.length - match.text.length;
+    for (let i = currentSearchIndex + 1; i < searchMatches.length; i++) {
+        searchMatches[i].start += lengthDiff;
+        searchMatches[i].end += lengthDiff;
+    }
+    
+    // Remove the replaced match
+    searchMatches.splice(currentSearchIndex, 1);
+    if (currentSearchIndex >= searchMatches.length) {
+        currentSearchIndex = searchMatches.length - 1;
+    }
+    
+    // Re-highlight remaining matches
+    highlightMatches();
+    updateSearchStatus();
+}
+
+function replaceAll(searchText, replaceText, caseSensitive = false) {
+    if (!searchText) return;
+
+    const content = getEditorText();
+    let flags = 'g';
+    if (!caseSensitive) flags += 'i';
+    
+    try {
+        const regex = new RegExp(searchText, flags);
+        const newContent = content.replace(regex, replaceText);
+        setEditorText(newContent);
+        
+        // Clear search state
+        searchMatches = [];
+        currentSearchIndex = -1;
+        clearSearchHighlights();
+        updateSearchStatus();
+    } catch (error) {
+        console.error('Replace error:', error);
+    }
+}
 
 // Add recovery option
 async function checkForBackup() {
@@ -502,6 +707,40 @@ document.getElementById('openFile').addEventListener('click', async () => {
         updatePreview();
         updateWordCount();
         checkForBackup();
+    }
+});
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', async (e) => {
+    // Save: Cmd/Ctrl + S
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        const content = editor.textContent;
+        const newPath = await ipcRenderer.invoke('save-file', {
+            content,
+            filePath: currentFilePath,
+            fileType: currentFileType
+        });
+        if (newPath) {
+            currentFilePath = newPath;
+            fileStatus.textContent = currentFilePath;
+        }
+    }
+    
+    // Save As: Cmd/Ctrl + Shift + S
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
+        e.preventDefault();
+        const content = editor.textContent;
+        const newPath = await ipcRenderer.invoke('save-file', {
+            content,
+            filePath: currentFilePath,
+            fileType: currentFileType,
+            saveAs: true
+        });
+        if (newPath) {
+            currentFilePath = newPath;
+            fileStatus.textContent = currentFilePath;
+        }
     }
 });
 
