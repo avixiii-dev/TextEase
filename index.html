@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TextEase</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="markdown.css">
+    <link rel="stylesheet" href="node_modules/highlight.js/styles/github.css">
+</head>
+<body class="txt-mode">
+    <div class="app-container">
+        <div class="toolbar">
+            <div class="file-operations">
+                <button id="newFile">New</button>
+                <button id="openFile">Open</button>
+                <button id="saveFile">Save</button>
+                <button id="saveFileAs">Save As</button>
+                <select id="fileType">
+                    <option value="txt">Plain Text (.txt)</option>
+                    <option value="md">Markdown (.md)</option>
+                    <option value="rtf">Rich Text (.rtf)</option>
+                </select>
+            </div>
+
+            <div id="txtControls" class="format-controls txt-controls">
+                <button id="txtWordWrap" title="Toggle Word Wrap">Word Wrap</button>
+                <select id="txtEncoding">
+                    <option value="utf8">UTF-8</option>
+                    <option value="ascii">ASCII</option>
+                </select>
+            </div>
+
+            <div id="mdControls" class="format-controls md-controls">
+                <button id="mdBold" title="Bold">B</button>
+                <button id="mdItalic" title="Italic">I</button>
+                <button id="mdHeading" title="Heading">H</button>
+                <button id="mdList" title="List">•</button>
+                <button id="mdLink" title="Link">🔗</button>
+                <button id="mdImage" title="Image">🖼</button>
+                <button id="mdCode" title="Code">{ }</button>
+                <button id="mdTable" title="Table">📊</button>
+                <button id="mdQuote" title="Quote">❝</button>
+                <button id="mdHorizontalRule" title="Horizontal Rule">―</button>
+                <button id="togglePreview" title="Toggle Preview">👁</button>
+            </div>
+
+            <div id="rtfControls" class="format-controls rtf-controls">
+                <select id="rtfFont">
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                </select>
+                <select id="rtfFontSize">
+                    <option value="12">12</option>
+                    <option value="14">14</option>
+                    <option value="16">16</option>
+                    <option value="18">18</option>
+                    <option value="20">20</option>
+                </select>
+                <button id="rtfBold" title="Bold">B</button>
+                <button id="rtfItalic" title="Italic">I</button>
+                <button id="rtfUnderline" title="Underline">U</button>
+                <input type="color" id="rtfTextColor" title="Text Color" value="#000000">
+                <button id="rtfAlignLeft" title="Align Left">⫷</button>
+                <button id="rtfAlignCenter" title="Align Center">☰</button>
+                <button id="rtfAlignRight" title="Align Right">⫸</button>
+                <button id="rtfBulletList" title="Bullet List">•</button>
+                <button id="rtfNumberList" title="Number List">1.</button>
+            </div>
+
+            <div class="view-operations">
+                <button id="toggleDarkMode">Dark Mode</button>
+            </div>
+        </div>
+        
+        <div class="editor-container">
+            <div id="editor" class="editor" contenteditable="true"></div>
+            <div id="preview" class="preview markdown-body"></div>
+        </div>
+        
+        <div class="status-bar">
+            <span id="fileStatus">New Document</span>
+            <span id="currentFileType">Plain Text</span>
+            <span id="encodingStatus">UTF-8</span>
+            <span id="wordCount">Words: 0</span>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search...">
+            <input type="text" id="replaceInput" placeholder="Replace with...">
+            <button id="searchBtn">Search</button>
+            <button id="replaceBtn">Replace</button>
+            <button id="replaceAllBtn">Replace All</button>
+        </div>
+    </div>
+    <script src="renderer.js"></script>
+</body>
+</html>
