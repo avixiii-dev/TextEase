@@ -712,8 +712,8 @@ document.getElementById('openFile').addEventListener('click', async () => {
 
 // Add keyboard shortcuts
 document.addEventListener('keydown', async (e) => {
-    // Save: Cmd/Ctrl + S
-    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    // Save: Ctrl + S
+    if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         const content = editor.textContent;
         const newPath = await ipcRenderer.invoke('save-file', {
@@ -724,11 +724,12 @@ document.addEventListener('keydown', async (e) => {
         if (newPath) {
             currentFilePath = newPath;
             fileStatus.textContent = currentFilePath;
+            showSaveIndicator('File saved');
         }
     }
     
-    // Save As: Cmd/Ctrl + Shift + S
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'S') {
+    // Save As: Ctrl + Shift + S
+    if (e.ctrlKey && e.shiftKey && e.key === 'S') {
         e.preventDefault();
         const content = editor.textContent;
         const newPath = await ipcRenderer.invoke('save-file', {
@@ -740,9 +741,53 @@ document.addEventListener('keydown', async (e) => {
         if (newPath) {
             currentFilePath = newPath;
             fileStatus.textContent = currentFilePath;
+            showSaveIndicator('File saved as ' + newPath);
+        }
+    }
+
+    // Quick Save: Alt + S (Save without dialog if file exists)
+    if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        if (currentFilePath) {
+            const content = editor.textContent;
+            await ipcRenderer.invoke('save-file', {
+                content,
+                filePath: currentFilePath,
+                fileType: currentFileType,
+                quickSave: true
+            });
+            showSaveIndicator('File saved');
+        } else {
+            // If no file path exists, behave like normal save
+            const content = editor.textContent;
+            const newPath = await ipcRenderer.invoke('save-file', {
+                content,
+                filePath: currentFilePath,
+                fileType: currentFileType
+            });
+            if (newPath) {
+                currentFilePath = newPath;
+                fileStatus.textContent = currentFilePath;
+                showSaveIndicator('File saved');
+            }
         }
     }
 });
+
+// Show save indicator
+function showSaveIndicator(message) {
+    const indicator = document.createElement('div');
+    indicator.className = 'save-indicator';
+    indicator.textContent = message;
+    document.body.appendChild(indicator);
+    
+    setTimeout(() => {
+        indicator.classList.add('fade-out');
+        setTimeout(() => {
+            document.body.removeChild(indicator);
+        }, 500);
+    }, 1500);
+}
 
 // Initialize
 updateWordCount();
