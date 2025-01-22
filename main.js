@@ -3,95 +3,187 @@ const path = require('path');
 const fs = require('fs');
 
 let mainWindow;
+const backupDir = path.join(app.getPath('userData'), 'backups');
+
+// Ensure backup directory exists
+if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+}
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
-  });
+    mainWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    });
 
-  mainWindow.loadFile('index.html');
-  
-  // Open DevTools in development
-  // mainWindow.webContents.openDevTools();
+    mainWindow.loadFile('index.html');
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
-});
-
-// File handling
-ipcMain.handle('open-file', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openFile'],
-    filters: [
-      { name: 'Text Documents', extensions: ['txt', 'rtf', 'md'] }
-    ]
-  });
-
-  if (!result.canceled && result.filePaths.length > 0) {
-    const filePath = result.filePaths[0];
-    let content = fs.readFileSync(filePath, 'utf8');
-    
-    // Handle RTF files
-    if (filePath.toLowerCase().endsWith('.rtf')) {
-      // Basic RTF stripping (this is a simple implementation)
-      content = content.replace(/[{}\\].*?[{}\\]/g, '')
-                      .replace(/\\par/g, '\n')
-                      .trim();
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
     }
-
-    return {
-      content,
-      filePath
-    };
-  }
 });
 
-ipcMain.handle('save-file', async (event, { content, filePath, fileType, saveAs = false }) => {
-  let pathToSave = filePath;
+// Create backup of file
+function createBackup(content, originalPath) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = path.basename(originalPath || 'untitled.txt');
+    const backupPath = path.join(backupDir, `${filename}.${timestamp}.bak`);
+    
+    try {
+        fs.writeFileSync(backupPath, content);
+        // Keep only last 5 backups
+        const files = fs.readdirSync(backupDir)
+            .filter(f => f.startsWith(filename))
+            .sort()
+            .reverse();
+            
+        if (files.length > 5) {
+            files.slice(5).forEach(f => {
+                fs.unlinkSync(path.join(backupDir, f));
+            });
+        }
+    } catch (error) {
+        console.error('Error creating backup:', error);
+    }
+}
 
-  if (!pathToSave || saveAs) {
-    const result = await dialog.showSaveDialog(mainWindow, {
-      filters: [
-        { name: 'Plain Text', extensions: ['txt'] },
-        { name: 'Markdown', extensions: ['md'] },
-        { name: 'Rich Text Format', extensions: ['rtf'] }
-      ],
-      defaultPath: pathToSave || `untitled.${fileType}`
+// Handle file open
+ipcMain.handle('open-file', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [
+            { name: 'Text Files', extensions: ['txt', 'md', 'rtf'] },
+            { name: 'All Files', extensions: ['*'] }
+        ]
     });
 
-    if (result.canceled) return false;
-    pathToSave = result.filePath;
-  }
+    if (!result.canceled && result.filePaths.length > 0) {
+        const filePath = result.filePaths[0];
+        try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            return { content, filePath };
+        } catch (error) {
+            await dialog.showMessageBox(mainWindow, {
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to open file',
+                detail: error.message
+            });
+            return null;
+        }
+    }
+    return null;
+});
 
-  // Handle different file types
-  let contentToSave = content;
-  const extension = pathToSave.split('.').pop().toLowerCase();
-
-  if (extension === 'rtf') {
-    // Basic RTF wrapper
-    contentToSave = `{\\rtf1\\ansi\\deff0
+// Handle file save
+ipcMain.handle('save-file', async (event, { content, filePath, fileType, saveAs = false }) => {
+    let targetPath = filePath;
+    
+    // Create backup before saving
+    if (filePath) {
+        createBackup(content, filePath);
+    }
+    
+    if (!targetPath || saveAs) {
+        const result = await dialog.showSaveDialog(mainWindow, {
+            defaultPath: path.join(app.getPath('documents'), `untitled.${fileType}`),
+            filters: [
+                { name: 'Text Files', extensions: ['txt', 'md', 'rtf'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+        
+        if (result.canceled) {
+            return null;
+        }
+        
+        targetPath = result.filePath;
+    }
+    
+    try {
+        // Format content based on file type
+        let contentToSave = content;
+        if (targetPath.toLowerCase().endsWith('.rtf')) {
+            contentToSave = `{\\rtf1\\ansi\\deff0
 {\\fonttbl{\\f0\\fnil\\fcharset0 Arial;}}
 {\\colortbl ;\\red0\\green0\\blue0;}
-\\viewkind4\\uc1\\pard\\cf1\\f0\\fs24 ${content.replace(/\n/g, '\\par ')}
+\\viewkind4\\uc1\\pard\\cf1\\f0\\fs24 ${content.replace(/\n/g, '\\par\n')}
 }`;
-  }
+        }
+        
+        fs.writeFileSync(targetPath, contentToSave);
+        return targetPath;
+    } catch (error) {
+        await dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: 'Error',
+            message: 'Failed to save file',
+            detail: error.message
+        });
+        return null;
+    }
+});
 
-  fs.writeFileSync(pathToSave, contentToSave);
-  return pathToSave;
+// Handle auto-save
+ipcMain.handle('auto-save', async (event, { content, filePath }) => {
+    if (!filePath) return null;
+    
+    try {
+        createBackup(content, filePath);
+        fs.writeFileSync(filePath, content);
+        return true;
+    } catch (error) {
+        console.error('Auto-save failed:', error);
+        return false;
+    }
+});
+
+// Handle recover from backup
+ipcMain.handle('recover-from-backup', async (event, originalPath) => {
+    try {
+        const filename = path.basename(originalPath || 'untitled.txt');
+        const backups = fs.readdirSync(backupDir)
+            .filter(f => f.startsWith(filename))
+            .sort()
+            .reverse();
+            
+        if (backups.length > 0) {
+            const latestBackup = backups[0];
+            const content = fs.readFileSync(path.join(backupDir, latestBackup), 'utf8');
+            return { content, backupPath: path.join(backupDir, latestBackup) };
+        }
+    } catch (error) {
+        console.error('Error recovering from backup:', error);
+    }
+    return null;
+});
+
+// Handle dropped file
+ipcMain.handle('handle-file-drop', async (event, filePath) => {
+    try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        return { content, filePath };
+    } catch (error) {
+        await dialog.showMessageBox(mainWindow, {
+            type: 'error',
+            title: 'Error',
+            message: 'Failed to open dropped file',
+            detail: error.message
+        });
+        return null;
+    }
 });
