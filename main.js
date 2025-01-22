@@ -90,7 +90,7 @@ ipcMain.handle('open-file', async () => {
 });
 
 // Handle file save
-ipcMain.handle('save-file', async (event, { content, filePath, fileType, saveAs = false }) => {
+ipcMain.handle('save-file', async (event, { content, filePath, fileType, saveAs = false, quickSave = false }) => {
     let targetPath = filePath;
     
     // Create backup before saving
@@ -98,9 +98,23 @@ ipcMain.handle('save-file', async (event, { content, filePath, fileType, saveAs 
         createBackup(content, filePath);
     }
     
+    // For quick save, only save if we have a path
+    if (quickSave && !targetPath) {
+        return null;
+    }
+    
     if (!targetPath || saveAs) {
+        // Get default save path
+        let defaultPath;
+        try {
+            defaultPath = path.join(app.getPath('documents'), `untitled.${fileType}`);
+        } catch (error) {
+            // Fallback to user data path if documents is not available
+            defaultPath = path.join(app.getPath('userData'), `untitled.${fileType}`);
+        }
+
         const result = await dialog.showSaveDialog(mainWindow, {
-            defaultPath: path.join(app.getPath('documents'), `untitled.${fileType}`),
+            defaultPath: defaultPath,
             filters: [
                 { name: 'Text Files', extensions: ['txt', 'md', 'rtf'] },
                 { name: 'All Files', extensions: ['*'] }
