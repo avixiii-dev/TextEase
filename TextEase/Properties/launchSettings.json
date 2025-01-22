@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "TextEase (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "TextEase (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
